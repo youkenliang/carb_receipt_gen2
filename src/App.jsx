@@ -5,8 +5,10 @@ import './App.css';
 
 // Google Sheets integration function
 async function saveToGoogleSheets(data) {
-  // This will be replaced with your actual Google Apps Script web app URL
-  const GOOGLE_SHEETS_WEBAPP_URL = 'YOUR_GOOGLE_APPS_SCRIPT_WEBAPP_URL_HERE';
+  // Replace this URL with your actual Google Apps Script web app URL
+  // Go to Google Apps Script → Deploy → New deployment → Web app
+  // Copy the URL and paste it here
+  const GOOGLE_SHEETS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyqK_Q3AE4u3npGPlvqEJppEMW9n1WXEl28kUQrDeGw_Y9RFtx6FWyRQ-WZsCxg8PtfQw/exec';
   
   try {
     const response = await fetch(GOOGLE_SHEETS_WEBAPP_URL, {
