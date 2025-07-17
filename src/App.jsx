@@ -907,7 +907,7 @@ function App() {
         {/* Big Logo at top center */}
         <div style={{textAlign: 'right', marginBottom: '40px'}}>
           <img 
-            src="/logo.png" 
+            src="./logo.png" 
             alt="Clean Truck Check Logo" 
             style={{
               width: '200px',
