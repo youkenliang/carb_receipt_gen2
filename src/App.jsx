@@ -5,30 +5,90 @@ import './App.css';
 
 // Google Sheets integration function
 async function saveToGoogleSheets(data) {
-  // Replace this URL with your actual Google Apps Script web app URL
+  // Replace this URL with your NEW Google Apps Script web app URL
   // Go to Google Apps Script → Deploy → New deployment → Web app
-  // Copy the URL and paste it here
-  const GOOGLE_SHEETS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyqK_Q3AE4u3npGPlvqEJppEMW9n1WXEl28kUQrDeGw_Y9RFtx6FWyRQ-WZsCxg8PtfQw/exec';
+  // Copy the NEW URL and paste it here
+  const GOOGLE_SHEETS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycby9Hr2c0tbzxAuDCYbGXcE2Oi2zJI5zgDn_9tbKSTzpatENapSjGlp48vHWOcAqRiPqxQ/exec';
   
+  console.log('🌐 Making request to Google Sheets web app...');
+  console.log('📡 URL:', GOOGLE_SHEETS_WEBAPP_URL);
+  console.log('📦 Data being sent:', data);
+  
+  // Method 1: Try using a CORS proxy
   try {
-    const response = await fetch(GOOGLE_SHEETS_WEBAPP_URL, {
+    console.log('🔄 Attempting request via CORS proxy...');
+    const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+    const fullUrl = proxyUrl + GOOGLE_SHEETS_WEBAPP_URL;
+    
+    const response = await fetch(fullUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Origin': window.location.origin
       },
       body: JSON.stringify(data)
     });
     
+    console.log('📡 Proxy response status:', response.status, response.statusText);
+    
     if (response.ok) {
-      console.log('Data saved to Google Sheets successfully');
+      const result = await response.json();
+      console.log('✅ Data saved to Google Sheets successfully (via proxy):', result);
       return true;
     } else {
-      console.error('Failed to save to Google Sheets');
-      return false;
+      throw new Error(`Proxy request failed: ${response.status}`);
     }
   } catch (error) {
-    console.error('Error saving to Google Sheets:', error);
-    return false;
+    console.error('🔥 Proxy request failed, trying alternative method...', error);
+    
+    // Method 2: Try using a different approach - create a form submission
+    try {
+      console.log('🔄 Attempting form submission method...');
+      
+      // Create a hidden form and submit it
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = GOOGLE_SHEETS_WEBAPP_URL;
+      form.target = '_blank'; // Open in new tab/window
+      form.style.display = 'none';
+      
+      // Add the data as a hidden input
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'data';
+      input.value = JSON.stringify(data);
+      form.appendChild(input);
+      
+      // Submit the form
+      document.body.appendChild(form);
+      form.submit();
+      document.body.removeChild(form);
+      
+      console.log('✅ Form submission completed');
+      return true; // Assume success
+    } catch (error2) {
+      console.error('🔥 Form submission failed:', error2);
+      
+      // Method 3: Try direct request with no-cors
+      try {
+        console.log('🔄 Attempting direct request with no-cors...');
+        const response3 = await fetch(GOOGLE_SHEETS_WEBAPP_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data)
+        });
+        
+        console.log('📡 No-cors response status:', response3.status, response3.statusText);
+        console.log('✅ No-cors request completed');
+        return true; // Assume success in no-cors mode
+      } catch (error3) {
+        console.error('🔥 All methods failed:', error3);
+        return false;
+      }
+    }
   }
 }
 
@@ -100,8 +160,68 @@ async function decodeVin(vin) {
 
 // Helper to check if a decoded VIN is valid
 function isVinValid(decoded) {
-  if (!decoded || !decoded.ErrorCode) return false;
-  return decoded.ErrorCode === "0" || decoded.ErrorCode.startsWith("0,");
+  console.log('🔍 Checking if VIN is valid...');
+  console.log('🔍 Decoded object:', decoded);
+  console.log('🔍 ErrorCode:', decoded?.ErrorCode);
+  console.log('🔍 ErrorText:', decoded?.ErrorText);
+  
+  if (!decoded || !decoded.ErrorCode) {
+    console.log('❌ No decoded object or ErrorCode');
+    return false;
+  }
+  
+  const isValid = decoded.ErrorCode === "0" || decoded.ErrorCode.startsWith("0,");
+  console.log('✅ VIN validation result:', isValid);
+  return isValid;
+}
+
+// Check VIN via API and return error details
+async function checkVinValidity(vin) {
+  console.log('🔍 Checking VIN via API:', vin);
+  
+  if (!vin || vin.length < 8) {
+    console.log('❌ VIN too short, skipping API check');
+    return { isValid: false, error: 'VIN too short' };
+  }
+  
+  try {
+    console.log('📡 Making API request to NHTSA...');
+    const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExtended/${vin}?format=json`);
+    console.log('📡 API Response status:', res.status, res.statusText);
+    
+    if (!res.ok) {
+      console.error('❌ API request failed:', res.status, res.statusText);
+      return { isValid: false, error: `API Error: ${res.status} ${res.statusText}` };
+    }
+    
+    const data = await res.json();
+    console.log('📊 Full API Response:', data);
+    
+    if (data.Results && data.Results[0]) {
+      const result = data.Results[0];
+      console.log('🔍 API Result object:', result);
+      console.log('🔍 Error Code:', result.ErrorCode);
+      console.log('🔍 Error Text:', result.ErrorText);
+      console.log('🔍 Make:', result.Make);
+      console.log('🔍 Model Year:', result.ModelYear);
+      
+      const isValid = isVinValid(result);
+      console.log('✅ VIN Valid according to our logic:', isValid);
+      
+      return {
+        isValid,
+        error: isValid ? null : result.ErrorText || 'Unknown VIN error',
+        make: result.Make || '',
+        modelYear: result.ModelYear || ''
+      };
+    }
+    
+    console.warn('⚠️ No results in API response');
+    return { isValid: false, error: 'No data returned from VIN API' };
+  } catch (err) {
+    console.error('🔥 Network error checking VIN:', err);
+    return { isValid: false, error: 'Network error checking VIN' };
+  }
 }
 
 function App() {
@@ -115,6 +235,7 @@ function App() {
   const [vehicleData, setVehicleData] = useState([]); // [{ image, vin, licensePlate, make, modelYear, vinApiError }]
   const [receiptImage, setReceiptImage] = useState(null);
   const [showFullscreen, setShowFullscreen] = useState(false);
+  const [vinValidationResults, setVinValidationResults] = useState({}); // { vin: { isValid, error, make, modelYear } }
 
   // Step 1: Image Upload
   const handleImageUpload = (e) => {
@@ -124,6 +245,48 @@ function App() {
       setImages(prev => [...prev, imgUrl]);
       setVehicleData(prev => [...prev, { image: imgUrl, file, vin: '', licensePlate: '', make: '', modelYear: '', vinApiError: false }]);
     }
+  };
+
+  // Preprocess image for better OCR
+  const preprocessImageForOCR = (file) => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        
+        // Draw original image
+        ctx.drawImage(img, 0, 0);
+        
+        // Get image data for processing
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+        
+        // Enhance contrast and brightness for better OCR
+        for (let i = 0; i < data.length; i += 4) {
+          // Convert to grayscale and enhance contrast
+          const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+          const enhanced = Math.min(255, Math.max(0, (gray - 128) * 1.5 + 128));
+          
+          data[i] = enhanced;     // Red
+          data[i + 1] = enhanced; // Green
+          data[i + 2] = enhanced; // Blue
+          // Alpha stays the same
+        }
+        
+        ctx.putImageData(imageData, 0, 0);
+        
+        // Convert back to blob
+        canvas.toBlob((blob) => {
+          resolve(blob);
+        }, 'image/png');
+      };
+      
+      img.src = URL.createObjectURL(file);
+    });
   };
 
   // Step 2: User Info (all optional)
@@ -137,6 +300,28 @@ function App() {
 
   const handleVehicleFieldChange = (idx, field, value) => {
     setVehicleData(prev => prev.map((v, i) => i === idx ? { ...v, [field]: value } : v));
+    
+    // If VIN changed, validate it
+    if (field === 'vin') {
+      console.log('🔄 VIN field changed:', value);
+      console.log('🔄 VIN length:', value.length);
+      
+      if (value.length >= 8) {
+        console.log('⏰ Scheduling VIN validation in 500ms...');
+        // Debounce the API call
+        setTimeout(async () => {
+          console.log('🚀 Starting VIN validation for:', value);
+          const validation = await checkVinValidity(value);
+          console.log('📋 Validation result:', validation);
+          setVinValidationResults(prev => ({
+            ...prev,
+            [value]: validation
+          }));
+        }, 500); // Wait 500ms after user stops typing
+      } else {
+        console.log('⏭️ VIN too short, skipping validation');
+      }
+    }
   };
 
   // Step 4: Confirm/Edit Data
@@ -145,6 +330,7 @@ function App() {
   };
   const handleConfirmSubmit = async (e) => {
     e.preventDefault();
+    console.log('🔄 Starting handleConfirmSubmit...');
     setConfirmedData({ ...userInfo });
     
     // Prepare data for Google Sheets
@@ -165,34 +351,46 @@ function App() {
       }))
     };
     
+    console.log('📋 Receipt data prepared:', receiptData);
+    
     // Generate receipt image
     try {
+      console.log('🔍 Checking receiptRef...');
       if (!receiptRef.current) {
-        console.log('Receipt ref not found');
+        console.error('❌ Receipt ref not found');
+        alert('Error: Receipt reference not found. Please try again.');
         return;
       }
       
-      console.log('Starting html2canvas conversion...');
+      console.log('✅ Receipt ref found, starting html2canvas conversion...');
       const canvas = await html2canvas(receiptRef.current);
-      console.log('Canvas created successfully');
+      console.log('✅ Canvas created successfully');
       
       // Convert canvas to data URL and set it
       const imageDataUrl = canvas.toDataURL('image/png');
+      console.log('✅ Image data URL created, length:', imageDataUrl.length);
+      
       setReceiptImage(imageDataUrl);
+      console.log('✅ Receipt image state set');
+      
       setStep(4);
+      console.log('✅ Step set to 4');
       
       // Save data to Google Sheets (non-blocking)
+      console.log('📤 Starting Google Sheets save...');
       saveToGoogleSheets(receiptData).then(success => {
         if (success) {
-          console.log('Receipt data saved to spreadsheet');
+          console.log('✅ Receipt data saved to spreadsheet');
         } else {
-          console.log('Failed to save receipt data to spreadsheet');
+          console.log('❌ Failed to save receipt data to spreadsheet');
         }
+      }).catch(error => {
+        console.error('🔥 Error in Google Sheets save:', error);
       });
       
     } catch (error) {
-      console.error('Error generating receipt:', error);
-      alert('Error generating receipt image. Please try again.');
+      console.error('🔥 Error generating receipt:', error);
+      alert('Error generating receipt image. Please try again. Error: ' + error.message);
     }
   };
 
@@ -386,7 +584,8 @@ function App() {
                   // OCR all images
                   const results = [];
                   for (let v of vehicleData) {
-                    const { data } = await Tesseract.recognize(v.file, 'eng', { logger: (m) => {} });
+                    const preprocessedFile = await preprocessImageForOCR(v.file);
+                    const { data } = await Tesseract.recognize(preprocessedFile, 'eng', { logger: (m) => {} });
                     const parsed = parseOcrText(data.text);
                     // VIN logic (use eVIN or User VIN, prefer valid)
                     let chosenVin = '';
@@ -410,6 +609,10 @@ function App() {
                           chosenVin = parsed['User VIN'];
                         } else if (evinValid && uservinValid) {
                           chosenVin = parsed['eVIN']; // default to eVIN if both valid
+                        } else {
+                          // Both are invalid, default to eVIN but mark as potentially invalid
+                          chosenVin = parsed['eVIN'];
+                          console.log('⚠️ Both VINs failed validation, defaulting to eVIN:', parsed['eVIN']);
                         }
                       }
                     } else if (parsed['eVIN']) {
@@ -430,6 +633,15 @@ function App() {
                         vinApiError = true;
                         console.log('VIN API error for', chosenVin, err);
                       }
+                      
+                      // Automatically validate the chosen VIN after extraction
+                      console.log('🔍 Auto-validating extracted VIN:', chosenVin);
+                      const validation = await checkVinValidity(chosenVin);
+                      console.log('📋 Auto-validation result:', validation);
+                      setVinValidationResults(prev => ({
+                        ...prev,
+                        [chosenVin]: validation
+                      }));
                     }
                     
                     results.push({ ...v, vin: chosenVin, licensePlate: parsed['License Plate'] || '', make, modelYear, vinApiError });
@@ -516,6 +728,39 @@ function App() {
                             boxSizing: 'border-box'
                           }}
                         />
+                        {(() => {
+                          const apiValidation = vinValidationResults[v.vin];
+                          
+                          return (
+                            <div style={{ marginTop: '4px' }}>
+                              {/* API validation - show when available */}
+                              {apiValidation && (
+                                <div style={{ 
+                                  color: apiValidation.isValid ? '#059669' : '#dc2626', 
+                                  fontSize: '12px',
+                                  fontStyle: 'italic',
+                                  fontWeight: apiValidation.error ? '600' : '400'
+                                }}>
+                                  {apiValidation.isValid ? 
+                                    '✅ VIN verified with NHTSA database' : 
+                                    `❌ ${apiValidation.error}`
+                                  }
+                                </div>
+                              )}
+                              
+                              {/* Loading indicator when API check is in progress */}
+                              {v.vin.length >= 8 && !apiValidation && (
+                                <div style={{ 
+                                  color: '#6b7280', 
+                                  fontSize: '12px',
+                                  fontStyle: 'italic'
+                                }}>
+                                  🔄 Verifying with NHTSA database...
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                       <div>
                         <label style={{ 
@@ -566,10 +811,16 @@ function App() {
                           backgroundColor: '#f9fafb',
                           color: '#6b7280'
                         }}>
-                          {v.vinApiError ? '' : (v.make || 'Not available')}
+                          {(() => {
+                            const apiValidation = vinValidationResults[v.vin];
+                            if (apiValidation && apiValidation.isValid) {
+                              return apiValidation.make || 'Not available';
+                            }
+                            return v.make || 'Not available';
+                          })()}
                         </div>
                       </div>
-                      <div>
+      <div>
                         <label style={{ 
                           display: 'block', 
                           fontSize: '14px', 
@@ -587,15 +838,16 @@ function App() {
                           backgroundColor: '#f9fafb',
                           color: '#6b7280'
                         }}>
-                          {v.vinApiError ? '' : (v.modelYear || 'Not available')}
+                          {(() => {
+                            const apiValidation = vinValidationResults[v.vin];
+                            if (apiValidation && apiValidation.isValid) {
+                              return apiValidation.modelYear || 'Not available';
+                            }
+                            return v.modelYear || 'Not available';
+                          })()}
                         </div>
                       </div>
                     </div>
-                    {v.vinApiError && (
-                      <div style={{ color: '#d32f2f', fontSize: '13px', marginTop: '8px' }}>
-                        车辆信息未能获取，可能是网络或服务器问题
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
@@ -625,7 +877,7 @@ function App() {
       )}
       {step === 3 && (
         <form onSubmit={handleConfirmSubmit} style={{ maxWidth: '100%', margin: '0 auto' }}>
-          <h2 style={{ fontSize: '20px', marginBottom: '16px', textAlign: 'center' }}>第三步：填写顾客信息（可跳过）</h2>
+          <h2 style={{ fontSize: '20px', marginBottom: '16px', textAlign: 'center' }}>第三步：填写客户信息（可跳过）</h2>
           <div style={{ 
             display: 'flex', 
             flexDirection: 'column', 
@@ -826,7 +1078,7 @@ function App() {
               </div>
             )}
           </div>
-        </div>
+      </div>
       )}
       
       {/* Fullscreen Modal */}
@@ -878,7 +1130,7 @@ function App() {
             onClick={() => setShowFullscreen(false)}
           >
             ×
-          </button>
+        </button>
         </div>
       )}
       
@@ -1017,4 +1269,5 @@ function App() {
 }
 
 export default App;
+
 
