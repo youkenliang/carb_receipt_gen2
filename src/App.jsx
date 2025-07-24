@@ -317,6 +317,17 @@ function App() {
             ...prev,
             [value]: validation
           }));
+          
+          // Update vehicleData with the new make and model year if validation is successful
+          if (validation.isValid) {
+            setVehicleData(prev => prev.map((v, i) => 
+              i === idx ? { 
+                ...v, 
+                make: validation.make || v.make,
+                modelYear: validation.modelYear || v.modelYear
+              } : v
+            ));
+          }
         }, 500); // Wait 500ms after user stops typing
       } else {
         console.log('⏭️ VIN too short, skipping validation');
