@@ -41,16 +41,26 @@ async function saveToGoogleSheets(data) {
   } catch (error) {
     console.error('🔥 Proxy request failed, trying alternative method...', error);
     
-    // Method 2: Try using a different approach - create a form submission
+    // Method 2: Try using a different approach - create a hidden form submission
     try {
-      console.log('🔄 Attempting form submission method...');
+      console.log('🔄 Attempting silent form submission method...');
       
-      // Create a hidden form and submit it
+      // Create a hidden form and submit it silently
       const form = document.createElement('form');
       form.method = 'POST';
       form.action = GOOGLE_SHEETS_WEBAPP_URL;
-      form.target = '_blank'; // Open in new tab/window
+      form.target = 'hidden-iframe'; // Use hidden iframe instead of new window
       form.style.display = 'none';
+      
+      // Create hidden iframe if it doesn't exist
+      let iframe = document.getElementById('hidden-iframe');
+      if (!iframe) {
+        iframe = document.createElement('iframe');
+        iframe.id = 'hidden-iframe';
+        iframe.name = 'hidden-iframe';
+        iframe.style.display = 'none';
+        document.body.appendChild(iframe);
+      }
       
       // Add the data as a hidden input
       const input = document.createElement('input');
@@ -64,7 +74,7 @@ async function saveToGoogleSheets(data) {
       form.submit();
       document.body.removeChild(form);
       
-      console.log('✅ Form submission completed');
+      console.log('✅ Silent form submission completed');
       return true; // Assume success
     } catch (error2) {
       console.error('🔥 Form submission failed:', error2);
@@ -387,7 +397,7 @@ function App() {
       setStep(4);
       console.log('✅ Step set to 4');
       
-      // Save data to Google Sheets (non-blocking)
+      // Save data to Google Sheets (non-blocking and silent)
       console.log('📤 Starting Google Sheets save...');
       saveToGoogleSheets(receiptData).then(success => {
         if (success) {
@@ -410,7 +420,13 @@ function App() {
     if (!receiptRef.current) return;
     const canvas = await html2canvas(receiptRef.current);
     const link = document.createElement('a');
-    link.download = 'receipt.png';
+    
+    // Generate custom filename with VIN and date
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD format
+    const firstVin = vehicleData.length > 0 && vehicleData[0].vin ? vehicleData[0].vin : 'unknown';
+    const filename = `${firstVin}_${today}.png`;
+    
+    link.download = filename;
     link.href = canvas.toDataURL('image/png');
     link.click();
   };
