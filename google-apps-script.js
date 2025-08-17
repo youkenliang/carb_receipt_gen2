@@ -5,30 +5,150 @@
 var SPREADSHEET_ID = '1Eu_Lpu6vAfKCaQAZgg7Y2dc5YiUrfrsHyteLDAmhSog';
 var SHEET_NAME = 'receipt_gen2';
 
-// Handle GET requests (for testing)
+// Handle GET requests (for testing and JSONP)
 function doGet(e) {
-  var response = ContentService.createTextOutput(JSON.stringify({ 
-    status: 'ok', 
-    message: 'Google Apps Script is running',
-    timestamp: new Date().toISOString()
-  }));
-  response.setMimeType(ContentService.MimeType.JSON);
+  try {
+    // Check if this is a client search request
+    var action = e.parameter.action;
+    var searchTerm = e.parameter.searchTerm;
+    
+    if (action === 'searchClients' && searchTerm) {
+      Logger.log('GET request for client search: ' + searchTerm);
+      return handleClientSearch(searchTerm);
+    }
+    
+    // Default response for testing
+    var response = ContentService.createTextOutput(JSON.stringify({ 
+      status: 'ok', 
+      message: 'Google Apps Script is running',
+      timestamp: new Date().toISOString()
+    }));
+    response.setMimeType(ContentService.MimeType.JSON);
+    return response;
+    
+  } catch (error) {
+    Logger.log('Error in doGet: ' + error.toString());
+    var response = ContentService.createTextOutput(JSON.stringify({ 
+      status: 'error', 
+      error: error.toString(),
+      timestamp: new Date().toISOString()
+    }));
+    response.setMimeType(ContentService.MimeType.JSON);
+    return response;
+  }
+}
+
+// Handle OPTIONS requests (CORS preflight)
+function doOptions(e) {
+  var response = ContentService.createTextOutput('');
+  response.setMimeType(ContentService.MimeType.TEXT);
   return response;
 }
 
-// Handle OPTIONS requests (CORS preflight) - simplified version
-function doOptions(e) {
-  Logger.log('=== OPTIONS REQUEST RECEIVED ===');
-  var response = ContentService.createTextOutput('');
-  response.setMimeType(ContentService.MimeType.TEXT);
-  Logger.log('=== OPTIONS RESPONSE SENT (no headers) ===');
-  return response;
+// Function to handle client search requests
+function handleClientSearch(searchTerm) {
+  try {
+    Logger.log('Searching for clients with term: ' + searchTerm);
+    
+    // Get the spreadsheet and sheet
+    var spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = spreadsheet.getSheetByName(SHEET_NAME);
+    
+    if (!sheet) {
+      throw new Error('Sheet "' + SHEET_NAME + '" not found');
+    }
+    
+    // Get all data from the sheet
+    var data = sheet.getDataRange().getValues();
+    var headers = data[0]; // First row contains headers
+    
+    // Find the column indices for client fields
+    var companyCol = headers.indexOf('Company');
+    var nameCol = headers.indexOf('Name');
+    var phoneCol = headers.indexOf('Phone');
+    var emailCol = headers.indexOf('Email');
+    var addressCol = headers.indexOf('Address');
+    
+    if (companyCol === -1 || nameCol === -1 || phoneCol === -1) {
+      throw new Error('Required columns not found in sheet');
+    }
+    
+    // Search through existing receipt data to find unique clients
+    var clients = [];
+    var seenClients = {}; // Track unique clients by company+name+phone
+    
+    // Start from row 2 (skip headers)
+    for (var i = 1; i < data.length; i++) {
+      var row = data[i];
+      var company = row[companyCol] || '';
+      var name = row[nameCol] || '';
+      var phone = row[phoneCol] || '';
+      var email = row[emailCol] || '';
+      var address = row[addressCol] || '';
+      
+      // Skip rows without company, name, or phone
+      if (!company && !name && !phone) continue;
+      
+      // Create a unique key for this client
+      var clientKey = (company + name + phone).toLowerCase();
+      
+      // Check if this client matches the search term
+      var matches = false;
+      if (searchTerm) {
+        // Convert all fields to strings for safe searching
+        var companyStr = String(company || '');
+        var nameStr = String(name || '');
+        var phoneStr = String(phone || '');
+        var emailStr = String(email || '');
+        
+        matches = companyStr.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                 nameStr.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                 phoneStr.includes(searchTerm) ||
+                 emailStr.toLowerCase().includes(searchTerm.toLowerCase());
+      }
+      
+      // If it matches and we haven't seen this client before, add it
+      if (matches && !seenClients[clientKey]) {
+        seenClients[clientKey] = true;
+        clients.push({
+          id: i, // Use row number as ID
+          company: company,
+          name: name,
+          phone: phone,
+          email: email,
+          address: address
+        });
+      }
+    }
+    
+    Logger.log('Found ' + clients.length + ' matching clients');
+    
+    // Return the results
+    var response = ContentService.createTextOutput(JSON.stringify({
+      success: true,
+      clients: clients,
+      count: clients.length
+    }));
+    response.setMimeType(ContentService.MimeType.JSON);
+    return response;
+    
+  } catch (error) {
+    Logger.log('Error in handleClientSearch: ' + error.toString());
+    
+    var response = ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: error.toString(),
+      clients: []
+    }));
+    response.setMimeType(ContentService.MimeType.JSON);
+    return response;
+  }
 }
 
 // Handle POST requests (main functionality)
 function doPost(e) {
   try {
-    Logger.log('Received POST request');
+    Logger.log('=== POST REQUEST RECEIVED ===');
     Logger.log('Request data: ' + e.postData.contents);
     Logger.log('Content type: ' + e.postData.type);
     
@@ -52,6 +172,14 @@ function doPost(e) {
     }
     
     Logger.log('Parsed data: ' + JSON.stringify(data));
+    
+    // Check if this is a client search request
+    if (data.action === 'searchClients') {
+      Logger.log('Handling client search request for: ' + data.searchTerm);
+      var searchResult = handleClientSearch(data.searchTerm);
+      Logger.log('Search result: ' + searchResult.getContent());
+      return searchResult;
+    }
     
     // Get the specific spreadsheet by ID and sheet by name
     var spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -94,7 +222,7 @@ function doPost(e) {
     return response;
       
   } catch (error) {
-    Logger.log('Error in doPost: ' + error.toString());
+    Logger.log('❌ Error in doPost: ' + error.toString());
     
     // Return error response
     var response = ContentService.createTextOutput(JSON.stringify({ 
@@ -104,71 +232,6 @@ function doPost(e) {
     }));
     response.setMimeType(ContentService.MimeType.JSON);
     return response;
-  }
-}
-
-// Test function to simulate an OPTIONS request
-function testOptionsRequest() {
-  Logger.log('=== TESTING OPTIONS REQUEST ===');
-  
-  // Create a mock OPTIONS request event
-  var mockEvent = {
-    parameter: {},
-    queryString: ''
-  };
-  
-  try {
-    Logger.log('Calling doOptions with mock data...');
-    var result = doOptions(mockEvent);
-    Logger.log('doOptions result: ' + result.getContent());
-    Logger.log('=== OPTIONS TEST COMPLETED ===');
-    return true;
-  } catch (error) {
-    Logger.log('❌ OPTIONS TEST FAILED: ' + error.toString());
-    Logger.log('=== OPTIONS TEST FAILED ===');
-    return false;
-  }
-}
-
-// Test function to simulate a POST request
-function testPostRequest() {
-  Logger.log('=== TESTING POST REQUEST ===');
-  
-  // Create a mock POST request event
-  var mockEvent = {
-    postData: {
-      contents: JSON.stringify({
-        date: '2025-07-19',
-        totalCharge: '120',
-        company: 'Test Company',
-        name: 'Test User',
-        phone: '555-1234',
-        email: 'test@example.com',
-        address: '123 Test St',
-        additionalService: 'Test Service',
-        vehicles: [
-          {
-            vin: '5PVNJ8JT9L5S60298',
-            licensePlate: '43312W2',
-            make: 'HINO',
-            modelYear: '2020'
-          }
-        ]
-      }),
-      type: 'application/json'
-    }
-  };
-  
-  try {
-    Logger.log('Calling doPost with mock data...');
-    var result = doPost(mockEvent);
-    Logger.log('doPost result: ' + result.getContent());
-    Logger.log('=== POST TEST COMPLETED SUCCESSFULLY ===');
-    return true;
-  } catch (error) {
-    Logger.log('❌ POST TEST FAILED: ' + error.toString());
-    Logger.log('=== POST TEST FAILED ===');
-    return false;
   }
 }
 
@@ -218,34 +281,21 @@ function testConnection() {
   }
 }
 
-// Simple test function - run this first
-function simpleTest() {
-  Logger.log('=== SIMPLE TEST STARTED ===');
-  Logger.log('Current time: ' + new Date().toString());
-  Logger.log('Spreadsheet ID: ' + SPREADSHEET_ID);
-  Logger.log('Target Sheet: ' + SHEET_NAME);
-  
+// Simple test function to verify the script is accessible
+function doGetTest(e) {
+  return ContentService.createTextOutput('Hello from Google Apps Script!');
+}
+
+// Test function to verify client search
+function testClientSearch() {
   try {
-    var spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
-    Logger.log('✅ Successfully opened spreadsheet: ' + spreadsheet.getName());
-    
-    var sheet = spreadsheet.getSheetByName(SHEET_NAME);
-    if (!sheet) {
-      Logger.log('❌ Sheet "' + SHEET_NAME + '" not found');
-      Logger.log('Available sheets: ' + spreadsheet.getSheets().map(function(s) { return s.getName(); }).join(', '));
-      return;
-    }
-    
-    Logger.log('✅ Found target sheet: ' + sheet.getName());
-    
-    // Try to get the first cell to test access
-    var firstCell = sheet.getRange(1, 1).getValue();
-    Logger.log('✅ First cell value: ' + firstCell);
-    
-    Logger.log('=== TEST COMPLETED SUCCESSFULLY ===');
-    
+    Logger.log('=== TESTING CLIENT SEARCH ===');
+    var result = handleClientSearch('truck');
+    Logger.log('Search result: ' + result.getContent());
+    Logger.log('=== CLIENT SEARCH TEST COMPLETED ===');
+    return true;
   } catch (error) {
-    Logger.log('❌ ERROR: ' + error.toString());
-    Logger.log('=== TEST FAILED ===');
+    Logger.log('❌ CLIENT SEARCH TEST FAILED: ' + error.toString());
+    return false;
   }
 } 

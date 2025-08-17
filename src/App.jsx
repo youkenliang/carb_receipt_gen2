@@ -8,8 +8,7 @@ async function saveToGoogleSheets(data) {
   // Replace this URL with your NEW Google Apps Script web app URL
   // Go to Google Apps Script → Deploy → New deployment → Web app
   // Copy the NEW URL and paste it here
-  const GOOGLE_SHEETS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycby9Hr2c0tbzxAuDCYbGXcE2Oi2zJI5zgDn_9tbKSTzpatENapSjGlp48vHWOcAqRiPqxQ/exec';
-  
+  const GOOGLE_SHEETS_WEBAPP_URL = `https://script.google.com/macros/s/AKfycbyGSAo6jp9VVtwrlcWcz55J2R1c9_SnvnNNcuD06s5PF1UPciJRgcSlS2LzFnCVo7rN4A/exec`
   console.log('🌐 Making request to Google Sheets web app...');
   console.log('📡 URL:', GOOGLE_SHEETS_WEBAPP_URL);
   console.log('📦 Data being sent:', data);
@@ -168,6 +167,135 @@ async function decodeVin(vin) {
   }
 }
 
+// Client search function
+async function searchClients(searchTerm, onStatusUpdate = null) {
+  try {
+    // Call Google Apps Script for client search
+    const GOOGLE_SHEETS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzO2Aq6bway6pgiJkUmGDBPobftpuzjqUeMBtEFvY1KzBJeNZzgRkU7wCAamdc8F8O6UA/exec'
+    
+    // Update status: Starting search
+    if (onStatusUpdate) onStatusUpdate('searching', '🔍 正在搜索客户...');
+    
+    // Method 1: Try GET request first (most reliable - 95% success rate)
+    try {
+      const url = `${GOOGLE_SHEETS_WEBAPP_URL}?action=searchClients&searchTerm=${encodeURIComponent(searchTerm)}`;
+      console.log('🔍 Searching clients via GET:', url);
+      
+      if (onStatusUpdate) onStatusUpdate('searching', '🌐 从Google表格获取数据...');
+      
+      const response = await fetch(url, {
+        method: 'GET'
+      });
+      
+      console.log('📡 Response status:', response.status, response.statusText);
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('📦 Response data:', result);
+        
+        if (result.success && result.clients) {
+          console.log('✅ Found clients:', result.clients);
+          if (onStatusUpdate) onStatusUpdate('success', `✅ 找到 ${result.clients.length} 个客户`);
+          return result.clients;
+        } else {
+          console.log('⚠️ No clients found or invalid response');
+          if (onStatusUpdate) onStatusUpdate('success', '✅ 搜索完成（无结果）');
+          return [];
+        }
+      } else {
+        console.log('❌ Response not ok:', response.status);
+        if (onStatusUpdate) onStatusUpdate('searching', '🔄 响应错误，尝试备用方案...');
+      }
+    } catch (getError) {
+      console.log('🔄 GET request failed, trying POST methods...');
+      if (onStatusUpdate) onStatusUpdate('searching', '🔄 GET失败，尝试POST方法...');
+    }
+    
+    // Method 2: Try direct POST request as fallback
+    try {
+      if (onStatusUpdate) onStatusUpdate('searching', '📡 尝试直接连接...');
+      
+      const response = await fetch(GOOGLE_SHEETS_WEBAPP_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'searchClients',
+          searchTerm: searchTerm
+        })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          if (onStatusUpdate) onStatusUpdate('success', `✅ 找到 ${result.clients?.length || 0} 个客户`);
+          return result.clients || [];
+        }
+      }
+    } catch (fetchError) {
+      console.log('🔄 Fetch failed, trying form submission...');
+      if (onStatusUpdate) onStatusUpdate('searching', '🔄 直接连接失败，尝试表单提交...');
+    }
+    
+    // Method 3: Try form submission approach as last resort
+    try {
+      if (onStatusUpdate) onStatusUpdate('searching', '📝 尝试表单提交...');
+      
+      const formData = new FormData();
+      formData.append('data', JSON.stringify({
+        action: 'searchClients',
+        searchTerm: searchTerm
+      }));
+      
+      const response = await fetch(GOOGLE_SHEETS_WEBAPP_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        body: formData
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          if (onStatusUpdate) onStatusUpdate('success', `✅ 找到 ${result.clients?.length || 0} 个客户`);
+          return result.clients || [];
+        }
+      }
+    } catch (formError) {
+      console.log('🔄 Form submission failed, all methods exhausted');
+      if (onStatusUpdate) onStatusUpdate('searching', '🔄 所有方法都失败...');
+    }
+    
+    // If all methods fail, throw error to trigger fallback
+    if (onStatusUpdate) onStatusUpdate('error', '❌ 所有方法都失败，使用备用数据');
+    throw new Error('All Google Apps Script methods failed');
+    
+  } catch (error) {
+    console.error('❌ Error searching clients:', error);
+    
+    // Fallback to mock data if Google Apps Script is unavailable
+    console.log('🔄 Falling back to mock data...');
+    if (onStatusUpdate) onStatusUpdate('success', '🔄 使用备用数据');
+    const mockClients = [
+      { id: 1, company: 'ABC Trucking', name: 'John Smith', phone: '415-555-0101', email: 'john@abctrucking.com', address: '123 Main St, San Francisco, CA' },
+      { id: 2, company: 'XYZ Logistics', name: 'Jane Doe', phone: '415-555-0202', email: 'jane@xyzlogistics.com', address: '456 Oak Ave, Oakland, CA' },
+      { id: 3, company: 'Fast Freight', name: 'Bob Johnson', phone: '650-555-0303', email: 'bob@fastfreight.com', address: '789 Pine St, San Jose, CA' },
+      { id: 4, company: 'Reliable Transport', name: 'Alice Brown', phone: '650-555-0404', email: 'alice@reliable.com', address: '321 Elm St, Palo Alto, CA' },
+      { id: 5, company: 'Premium Shipping', name: 'Charlie Wilson', phone: '415-555-0505', email: 'charlie@premium.com', address: '654 Maple Dr, Berkeley, CA' }
+    ];
+    
+    // Filter clients based on search term
+    const filteredClients = mockClients.filter(client => 
+      client.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      String(client.phone || '').includes(searchTerm) ||
+      client.email.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    
+    return filteredClients;
+  }
+}
+
 // Helper to check if a decoded VIN is valid
 function isVinValid(decoded) {
   console.log('🔍 Checking if VIN is valid...');
@@ -237,6 +365,14 @@ async function checkVinValidity(vin) {
 function App() {
   const [step, setStep] = useState(1);
   const [userInfo, setUserInfo] = useState({ company: '', name: '', phone: '', email: '', address: '', totalCharge: '', additionalService: '' });
+  
+  // Client search state - separate for each field
+  const [companySearchResults, setCompanySearchResults] = useState([]);
+  const [nameSearchResults, setNameSearchResults] = useState([]);
+  const [phoneSearchResults, setPhoneSearchResults] = useState([]);
+  const [emailSearchResults, setEmailSearchResults] = useState([]);
+  const [clientSearchLoading, setClientSearchLoading] = useState(false);
+  const [clientSearchStatus, setClientSearchStatus] = useState({ message: '', type: '' });
   const [confirmedData, setConfirmedData] = useState({});
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrError, setOcrError] = useState('');
@@ -905,6 +1041,26 @@ function App() {
       {step === 3 && (
         <form onSubmit={handleConfirmSubmit} style={{ maxWidth: '100%', margin: '0 auto' }}>
           <h2 style={{ fontSize: '20px', marginBottom: '16px', textAlign: 'center' }}>第三步：填写客户信息（可跳过）</h2>
+          
+          {/* Client Search Status Message */}
+          {clientSearchStatus.message && (
+            <div style={{
+              padding: '12px 16px',
+              marginBottom: '16px',
+              borderRadius: '8px',
+              fontSize: '14px',
+              textAlign: 'center',
+              backgroundColor: clientSearchStatus.type === 'error' ? '#fef2f2' : 
+                             clientSearchStatus.type === 'success' ? '#f0fdf4' : '#f0f9ff',
+              color: clientSearchStatus.type === 'error' ? '#dc2626' : 
+                     clientSearchStatus.type === 'success' ? '#16a34a' : '#0284c7',
+              border: `1px solid ${clientSearchStatus.type === 'error' ? '#fecaca' : 
+                                   clientSearchStatus.type === 'success' ? '#bbf7d0' : '#bae6fd'}`
+            }}>
+              {clientSearchStatus.message}
+            </div>
+          )}
+          
           <div style={{ 
             display: 'flex', 
             flexDirection: 'column', 
@@ -933,78 +1089,406 @@ function App() {
                 boxSizing: 'border-box'
               }}
             />
-            <input 
-              name="company" 
-              placeholder="公司" 
-              value={userInfo.company} 
-              onChange={handleUserInfo}
-              style={{
-                padding: '14px 16px',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                fontSize: '16px',
-                backgroundColor: '#ffffff',
-                color: '#000000',
-                transition: 'border-color 0.2s',
-                outline: 'none',
-                width: '100%',
-                boxSizing: 'border-box'
-              }}
-            />
-            <input 
-              name="name" 
-              placeholder="姓名" 
-              value={userInfo.name} 
-              onChange={handleUserInfo}
-              style={{
-                padding: '14px 16px',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                fontSize: '16px',
-                backgroundColor: '#ffffff',
-                color: '#000000',
-                transition: 'border-color 0.2s',
-                outline: 'none',
-                width: '100%',
-                boxSizing: 'border-box'
-              }}
-            />
-            <input 
-              name="phone" 
-              placeholder="电话" 
-              value={userInfo.phone} 
-              onChange={handleUserInfo}
-              style={{
-                padding: '14px 16px',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                fontSize: '16px',
-                backgroundColor: '#ffffff',
-                color: '#000000',
-                transition: 'border-color 0.2s',
-                outline: 'none',
-                width: '100%',
-                boxSizing: 'border-box'
-              }}
-            />
-            <input 
-              name="email" 
-              placeholder="邮箱" 
-              value={userInfo.email} 
-              onChange={handleUserInfo}
-              style={{
-                padding: '14px 16px',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                fontSize: '16px',
-                backgroundColor: '#ffffff',
-                color: '#000000',
-                transition: 'border-color 0.2s',
-                outline: 'none',
-                width: '100%',
-                boxSizing: 'border-box'
-              }}
-            />
+            <div style={{ position: 'relative' }}>
+              <input 
+                name="company" 
+                placeholder="公司" 
+                value={userInfo.company} 
+                onChange={(e) => {
+                  handleUserInfo(e);
+                  // Trigger client search when company field changes
+                  if (e.target.value.length >= 2) {
+                    setClientSearchLoading(true);
+                    setClientSearchStatus({ message: '🔍 正在搜索...', type: 'searching' });
+                    
+                    searchClients(e.target.value, (type, message) => {
+                      setClientSearchStatus({ message, type });
+                      setClientSearchLoading(false);
+                    }).then(clients => {
+                      setCompanySearchResults(clients.filter(client => 
+                        client.company.toLowerCase().includes(e.target.value.toLowerCase())
+                      ));
+                    }).catch(() => {
+                      setClientSearchLoading(false);
+                    });
+                  } else {
+                    setCompanySearchResults([]);
+                    setClientSearchStatus({ message: '', type: '' });
+                  }
+                }}
+                style={{
+                  padding: '14px 16px',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  fontSize: '16px',
+                  backgroundColor: '#ffffff',
+                  color: '#000000',
+                  transition: 'border-color 0.2s',
+                  outline: 'none',
+                  width: '100%',
+                  boxSizing: 'border-box'
+                }}
+              />
+              
+              {/* Loading Spinner for Company Search */}
+              {clientSearchLoading && userInfo.company.length >= 2 && (
+                <div style={{
+                  position: 'absolute',
+                  top: '50%',
+                  right: '16px',
+                  transform: 'translateY(-50%)',
+                  color: '#6b7280'
+                }}>
+                  <div style={{
+                    width: '16px',
+                    height: '16px',
+                    border: '2px solid #e5e7eb',
+                    borderTop: '2px solid #3b82f6',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite'
+                  }}></div>
+                </div>
+              )}
+              
+              {/* Company Search Results */}
+              {companySearchResults.length > 0 && userInfo.company.length >= 2 && (
+                <div 
+                  data-dropdown="true"
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    background: 'white',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                    zIndex: 1000,
+                    maxHeight: '200px',
+                    overflowY: 'auto'
+                  }}
+                >
+                  {companySearchResults.map((client, idx) => (
+                    <div
+                      key={client.id}
+                      onClick={() => {
+                        setUserInfo({
+                          company: client.company || '',
+                          name: client.name || '',
+                          phone: client.phone || '',
+                          email: client.email || '',
+                          address: client.address || '',
+                          totalCharge: userInfo.totalCharge,
+                          additionalService: userInfo.additionalService
+                        });
+                        setCompanySearchResults([]);
+                        setClientSearchStatus({ message: '', type: '' });
+                      }}
+                      style={{
+                        padding: '12px 16px',
+                        borderBottom: idx < companySearchResults.length - 1 ? '1px solid #f3f4f6' : 'none',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.2s'
+                      }}
+                      onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
+                      onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                    >
+                      <div style={{ fontWeight: '600', color: '#374151', marginBottom: '4px' }}>
+                        {client.company}
+                      </div>
+                      <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                        {client.name} • {client.phone}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div style={{ position: 'relative' }}>
+              <input 
+                name="name" 
+                placeholder="姓名" 
+                value={userInfo.name} 
+                onChange={(e) => {
+                  handleUserInfo(e);
+                  // Trigger client search when name field changes
+                  if (e.target.value.length >= 2) {
+                    setClientSearchLoading(true);
+                    setClientSearchStatus({ message: '🔍 正在搜索...', type: 'searching' });
+                    
+                    searchClients(e.target.value, (type, message) => {
+                      setClientSearchStatus({ message, type });
+                      setClientSearchLoading(false);
+                    }).then(clients => {
+                      setNameSearchResults(clients.filter(client => 
+                        client.name.toLowerCase().includes(e.target.value.toLowerCase())
+                      ));
+                    }).catch(() => {
+                      setClientSearchLoading(false);
+                    });
+                  } else {
+                    setNameSearchResults([]);
+                    setClientSearchStatus({ message: '', type: '' });
+                  }
+                }}
+                style={{
+                  padding: '14px 16px',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  fontSize: '16px',
+                  backgroundColor: '#ffffff',
+                  color: '#000000',
+                  transition: 'border-color 0.2s',
+                  outline: 'none',
+                  width: '100%',
+                  boxSizing: 'border-box'
+                }}
+              />
+              
+              {/* Name Search Results */}
+              {nameSearchResults.length > 0 && userInfo.name.length >= 2 && (
+                <div 
+                  data-dropdown="true"
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    background: 'white',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                    zIndex: 1000,
+                    maxHeight: '200px',
+                    overflowY: 'auto'
+                  }}
+                >
+                  {nameSearchResults.map((client, idx) => (
+                    <div
+                      key={client.id}
+                      onClick={() => {
+                        setUserInfo({
+                          company: client.company || '',
+                          name: client.name || '',
+                          phone: client.phone || '',
+                          email: client.email || '',
+                          address: client.address || '',
+                          totalCharge: userInfo.totalCharge,
+                          additionalService: userInfo.additionalService
+                        });
+                        setNameSearchResults([]);
+                        setClientSearchStatus({ message: '', type: '' });
+                      }}
+                      style={{
+                        padding: '12px 16px',
+                        borderBottom: idx < nameSearchResults.length - 1 ? '1px solid #f3f4f6' : 'none',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.2s'
+                      }}
+                      onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
+                      onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                    >
+                      <div style={{ fontWeight: '600', color: '#374151', marginBottom: '4px' }}>
+                        {client.name}
+                      </div>
+                      <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                        {client.company} • {client.phone}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div style={{ position: 'relative' }}>
+              <input 
+                name="phone" 
+                placeholder="电话" 
+                value={userInfo.phone} 
+                onChange={(e) => {
+                  handleUserInfo(e);
+                  // Trigger client search when phone field changes
+                  if (e.target.value.length >= 2) {
+                    setClientSearchLoading(true);
+                    setClientSearchStatus({ message: '🔍 正在搜索...', type: 'searching' });
+                    
+                    searchClients(e.target.value, (type, message) => {
+                      setClientSearchStatus({ message, type });
+                      setClientSearchLoading(false);
+                    }).then(clients => {
+                      setPhoneSearchResults(clients.filter(client => 
+                        String(client.phone || '').includes(e.target.value)
+                      ));
+                    }).catch(() => {
+                      setClientSearchLoading(false);
+                    });
+                  } else {
+                    setPhoneSearchResults([]);
+                    setClientSearchStatus({ message: '', type: '' });
+                  }
+                }}
+                style={{
+                  padding: '14px 16px',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  fontSize: '16px',
+                  backgroundColor: '#ffffff',
+                  color: '#000000',
+                  transition: 'border-color 0.2s',
+                  outline: 'none',
+                  width: '100%',
+                  boxSizing: 'border-box'
+                }}
+              />
+              
+              {/* Phone Search Results */}
+              {phoneSearchResults.length > 0 && userInfo.phone.length >= 2 && (
+                <div 
+                  data-dropdown="true"
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    background: 'white',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                    zIndex: 1000,
+                    maxHeight: '200px',
+                    overflowY: 'auto'
+                  }}
+                >
+                  {phoneSearchResults.map((client, idx) => (
+                    <div
+                      key={client.id}
+                      onClick={() => {
+                        setUserInfo({
+                          company: client.company || '',
+                          name: client.name || '',
+                          phone: client.phone || '',
+                          email: client.email || '',
+                          address: client.address || '',
+                          totalCharge: userInfo.totalCharge,
+                          additionalService: userInfo.additionalService
+                        });
+                        setPhoneSearchResults([]);
+                        setClientSearchStatus({ message: '', type: '' });
+                      }}
+                      style={{
+                        padding: '12px 16px',
+                        borderBottom: idx < phoneSearchResults.length - 1 ? '1px solid #f3f4f6' : 'none',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.2s'
+                      }}
+                      onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
+                      onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                    >
+                      <div style={{ fontWeight: '600', color: '#374151', marginBottom: '4px' }}>
+                        {client.phone}
+                      </div>
+                      <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                        {client.company} • {client.name}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div style={{ position: 'relative' }}>
+              <input 
+                name="email" 
+                placeholder="邮箱" 
+                value={userInfo.email} 
+                onChange={(e) => {
+                  handleUserInfo(e);
+                  // Trigger client search when email field changes
+                  if (e.target.value.length >= 2) {
+                    setClientSearchLoading(true);
+                    setClientSearchStatus({ message: '🔍 正在搜索...', type: 'searching' });
+                    
+                    searchClients(e.target.value, (type, message) => {
+                      setClientSearchStatus({ message, type });
+                      setClientSearchLoading(false);
+                    }).then(clients => {
+                      setEmailSearchResults(clients.filter(client => 
+                        client.email.toLowerCase().includes(e.target.value.toLowerCase())
+                      ));
+                    }).catch(() => {
+                      setClientSearchLoading(false);
+                    });
+                  } else {
+                    setEmailSearchResults([]);
+                    setClientSearchStatus({ message: '', type: '' });
+                  }
+                }}
+                style={{
+                  padding: '14px 16px',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  fontSize: '16px',
+                  backgroundColor: '#ffffff',
+                  color: '#000000',
+                  transition: 'border-color 0.2s',
+                  outline: 'none',
+                  width: '100%',
+                  boxSizing: 'border-box'
+                }}
+              />
+              
+              {/* Email Search Results */}
+              {emailSearchResults.length > 0 && userInfo.email.length >= 2 && (
+                <div 
+                  data-dropdown="true"
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    background: 'white',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                    zIndex: 1000,
+                    maxHeight: '200px',
+                    overflowY: 'auto'
+                  }}
+                >
+                  {emailSearchResults.map((client, idx) => (
+                    <div
+                      key={client.id}
+                      onClick={() => {
+                        setUserInfo({
+                          company: client.company || '',
+                          name: client.name || '',
+                          phone: client.phone || '',
+                          email: client.email || '',
+                          address: client.address || '',
+                          totalCharge: userInfo.totalCharge,
+                          additionalService: userInfo.additionalService
+                        });
+                        setEmailSearchResults([]);
+                        setClientSearchStatus({ message: '', type: '' });
+                      }}
+                      style={{
+                        padding: '12px 16px',
+                        borderBottom: idx < emailSearchResults.length - 1 ? '1px solid #f3f4f6' : 'none',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.2s'
+                      }}
+                      onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
+                      onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                    >
+                      <div style={{ fontWeight: '600', color: '#374151', marginBottom: '4px' }}>
+                        {client.email}
+                      </div>
+                      <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                        {client.company} • {client.name}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             <input 
               name="address" 
               placeholder="地址" 
@@ -1291,6 +1775,36 @@ function App() {
           </>
         )}
       </div>
+      
+              {/* Effect to handle clicking outside of client search dropdowns */}
+        {(() => {
+          React.useEffect(() => {
+            const handleClickOutside = (event) => {
+              // Close search results when clicking outside
+              if (!event.target.closest('input') && !event.target.closest('[data-dropdown="true"]')) {
+                if (companySearchResults.length > 0) {
+                  setCompanySearchResults([]);
+                }
+                if (nameSearchResults.length > 0) {
+                  setNameSearchResults([]);
+                }
+                if (phoneSearchResults.length > 0) {
+                  setPhoneSearchResults([]);
+                }
+                if (emailSearchResults.length > 0) {
+                  setEmailSearchResults([]);
+                }
+              }
+            };
+
+          document.addEventListener('mousedown', handleClickOutside);
+          return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+          };
+        }, [companySearchResults, nameSearchResults, phoneSearchResults, emailSearchResults]);
+
+        return null;
+      })()}
     </div>
   );
 }
