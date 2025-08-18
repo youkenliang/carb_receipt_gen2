@@ -199,20 +199,56 @@ function doPost(e) {
     
     Logger.log('Successfully opened spreadsheet and sheet');
     
-    // Prepare the row data
-    var rowData = [
-      data.date,
-      data.totalCharge,
-      data.company,
-      data.name,
-      data.phone,
-      data.clientEmail,
-      data.accountEmail,
-      data.address,
-      data.additionalService,
-      data.vehicles.length,
-      JSON.stringify(data.vehicles) // Store vehicle details as JSON
-    ];
+    // Get headers to find column positions dynamically
+    var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    Logger.log('Sheet headers: ' + headers.join(', '));
+    
+    // Find column positions by name - UPDATED to match your exact structure
+    var dateCol = headers.indexOf('Date');
+    var totalChargeCol = headers.indexOf('Total Charge');
+    var companyCol = headers.indexOf('Company');
+    var nameCol = headers.indexOf('Name');
+    var phoneCol = headers.indexOf('Phone');
+    var clientEmailCol = headers.indexOf('Client Email');
+    var accountEmailCol = headers.indexOf('Account Email');
+    var passwordCol = headers.indexOf('Password');
+    var addressCol = headers.indexOf('Address');
+    var additionalServiceCol = headers.indexOf('Additional Service');
+    var numberOfVehiclesCol = headers.indexOf('Number of Vehicles');
+    var vehicleDetailsCol = headers.indexOf('Vehicle Details');
+    var commentsCol = headers.indexOf('Comments');
+    
+    // Log column positions for debugging
+    Logger.log('Column positions found: Date=' + dateCol + ', Total Charge=' + totalChargeCol + ', Company=' + companyCol + ', Name=' + nameCol + ', Phone=' + phoneCol + ', Client Email=' + clientEmailCol + ', Account Email=' + accountEmailCol + ', Password=' + passwordCol + ', Address=' + addressCol);
+    
+    // Validate required columns exist
+    if (dateCol === -1 || companyCol === -1 || nameCol === -1 || phoneCol === -1) {
+      throw new Error('Required columns not found in sheet. Found headers: ' + headers.join(', '));
+    }
+    
+    // Create an array with the correct number of columns (matching sheet structure)
+    var maxCols = Math.max(dateCol, totalChargeCol, companyCol, nameCol, phoneCol, clientEmailCol, accountEmailCol, passwordCol, addressCol, additionalServiceCol, numberOfVehiclesCol, vehicleDetailsCol, commentsCol) + 1;
+    var rowData = new Array(maxCols).fill(''); // Initialize with empty strings
+    
+    // Place data in correct columns based on found positions
+    if (dateCol >= 0) {
+      // Format date consistently with existing rows - using PDT timezone
+      var today = new Date();
+      var formattedDate = Utilities.formatDate(today, 'America/Los_Angeles', 'yyyy-MM-dd');
+      rowData[dateCol] = formattedDate;
+    }
+    if (totalChargeCol >= 0) rowData[totalChargeCol] = data.totalCharge || '';
+    if (companyCol >= 0) rowData[companyCol] = data.company || '';
+    if (nameCol >= 0) rowData[nameCol] = data.name || '';
+    if (phoneCol >= 0) rowData[phoneCol] = data.phone || '';
+    if (clientEmailCol >= 0) rowData[clientEmailCol] = data.clientEmail || '';
+    if (accountEmailCol >= 0) rowData[accountEmailCol] = data.accountEmail || '';
+    if (passwordCol >= 0) rowData[passwordCol] = ''; // Password field (blank for now)
+    if (addressCol >= 0) rowData[addressCol] = data.address || '';
+    if (additionalServiceCol >= 0) rowData[additionalServiceCol] = data.additionalService || '';
+    if (numberOfVehiclesCol >= 0) rowData[numberOfVehiclesCol] = data.vehicles ? data.vehicles.length : 0;
+    if (vehicleDetailsCol >= 0) rowData[vehicleDetailsCol] = data.vehicles ? JSON.stringify(data.vehicles) : '';
+    if (commentsCol >= 0) rowData[commentsCol] = ''; // Comments field (blank for now)
     
     Logger.log('Prepared row data: ' + JSON.stringify(rowData));
     
@@ -255,16 +291,18 @@ function setupHeaders() {
   
   var headers = [
     'Date',
-    'Total Charge',
+    'Total Charge', 
     'Company',
     'Name',
     'Phone',
     'Client Email',
     'Account Email',
+    'Password',
     'Address',
     'Additional Service',
     'Number of Vehicles',
-    'Vehicle Details'
+    'Vehicle Details',
+    'Comments'
   ];
   
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
@@ -306,6 +344,36 @@ function testClientSearch() {
     return true;
   } catch (error) {
     Logger.log('❌ CLIENT SEARCH TEST FAILED: ' + error.toString());
+    return false;
+  }
+}
+
+// Function to check current sheet structure
+function checkSheetStructure() {
+  try {
+    Logger.log('=== CHECKING SHEET STRUCTURE ===');
+    
+    var spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = spreadsheet.getSheetByName(SHEET_NAME);
+    
+    if (!sheet) {
+      Logger.log('❌ Sheet "' + SHEET_NAME + '" not found');
+      return false;
+    }
+    
+    var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    Logger.log('📋 Current headers: ' + headers.join(', '));
+    
+    Logger.log('🔍 Column mapping:');
+    headers.forEach((header, index) => {
+      Logger.log('  Column ' + index + ': "' + header + '"');
+    });
+    
+    Logger.log('✅ Sheet structure check completed');
+    return true;
+    
+  } catch (error) {
+    Logger.log('❌ Sheet structure check failed: ' + error.toString());
     return false;
   }
 } 

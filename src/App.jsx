@@ -8,7 +8,8 @@ async function saveToGoogleSheets(data) {
   // Replace this URL with your NEW Google Apps Script web app URL
   // Go to Google Apps Script → Deploy → New deployment → Web app
   // Copy the NEW URL and paste it here
-  const GOOGLE_SHEETS_WEBAPP_URL = `https://script.google.com/macros/s/AKfycbyGSAo6jp9VVtwrlcWcz55J2R1c9_SnvnNNcuD06s5PF1UPciJRgcSlS2LzFnCVo7rN4A/exec`
+  const GOOGLE_SHEETS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzENFxdsEu9iSRz1p1V3myGod0BnhdYiltEfAI86J5RJIZGnHqd0b3yVaOH8fwDYR5xLg/exec'
+  
   console.log('🌐 Making request to Google Sheets web app...');
   console.log('📡 URL:', GOOGLE_SHEETS_WEBAPP_URL);
   console.log('📦 Data being sent:', data);
