@@ -385,6 +385,12 @@ function App() {
   const [receiptImage, setReceiptImage] = useState(null);
   const [showFullscreen, setShowFullscreen] = useState(false);
   const [vinValidationResults, setVinValidationResults] = useState({}); // { vin: { isValid, error, make, modelYear } }
+  const [includeCompanyInfo, setIncludeCompanyInfo] = useState(false); // New state for company info toggle
+  const [companyInfo, setCompanyInfo] = useState({
+    companyName: 'All Star Company',
+    phone: '4153201999',
+    address: '18 Farragut Ave, San Francisco, CA 94112'
+  }); // New state for editable company info
 
   // Step 1: Image Upload
   const handleImageUpload = (e) => {
@@ -1628,6 +1634,138 @@ function App() {
                 boxSizing: 'border-box'
               }}
             />
+            
+            {/* Company Info Toggle Button */}
+            <div style={{
+              padding: '20px',
+              background: includeCompanyInfo ? '#f0f9ff' : '#f8fafc',
+              borderRadius: '12px',
+              border: `2px solid ${includeCompanyInfo ? '#0ea5e9' : '#e2e8f0'}`,
+              transition: 'all 0.3s ease',
+              position: 'relative'
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '12px'
+              }}>
+                <div style={{
+                  fontSize: '18px',
+                  fontWeight: '600',
+                  color: includeCompanyInfo ? '#0ea5e9' : '#374151'
+                }}>
+                  {includeCompanyInfo ? '✓ 公司信息已启用' : '公司信息选项'}
+                </div>
+                
+                {/* Toggle Switch */}
+                <div 
+                  onClick={() => setIncludeCompanyInfo(!includeCompanyInfo)}
+                  style={{
+                    width: '60px',
+                    height: '32px',
+                    background: includeCompanyInfo ? '#0ea5e9' : '#cbd5e1',
+                    borderRadius: '16px',
+                    padding: '4px',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    position: 'relative'
+                  }}
+                >
+                  <div style={{
+                    width: '24px',
+                    height: '24px',
+                    background: 'white',
+                    borderRadius: '50%',
+                    transform: `translateX(${includeCompanyInfo ? '28px' : '0px'})`,
+                    transition: 'transform 0.3s ease',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                  }} />
+                </div>
+              </div>
+              
+              <div style={{
+                fontSize: '15px',
+                color: '#6b7280',
+                lineHeight: '1.5'
+              }}>
+                {includeCompanyInfo ? (
+                  <span style={{ color: '#0ea5e9', fontWeight: '500' }}>
+                    编辑您的公司信息
+                  </span>
+                ) : (
+                  '点击开关以在收据中添加您的公司信息'
+                )}
+              </div>
+              
+              {/* Editable Company Info Fields */}
+              {includeCompanyInfo && (
+                <div style={{
+                  marginTop: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px'
+                }}>
+                  <input
+                    placeholder="公司名称"
+                    value={companyInfo.companyName}
+                    onChange={(e) => setCompanyInfo(prev => ({ ...prev, companyName: e.target.value }))}
+                    style={{
+                      padding: '12px 16px',
+                      border: '1px solid #e0f2fe',
+                      borderRadius: '8px',
+                      fontSize: '16px',
+                      backgroundColor: '#ffffff',
+                      color: '#000000',
+                      outline: 'none'
+                    }}
+                  />
+                  <input
+                    placeholder="电话号码"
+                    value={companyInfo.phone}
+                    onChange={(e) => setCompanyInfo(prev => ({ ...prev, phone: e.target.value }))}
+                    style={{
+                      padding: '12px 16px',
+                      border: '1px solid #e0f2fe',
+                      borderRadius: '8px',
+                      fontSize: '16px',
+                      backgroundColor: '#ffffff',
+                      color: '#000000',
+                      outline: 'none'
+                    }}
+                  />
+                  <input
+                    placeholder="地址"
+                    value={companyInfo.address}
+                    onChange={(e) => setCompanyInfo(prev => ({ ...prev, address: e.target.value }))}
+                    style={{
+                      padding: '12px 16px',
+                      border: '1px solid #e0f2fe',
+                      borderRadius: '8px',
+                      fontSize: '16px',
+                      backgroundColor: '#ffffff',
+                      color: '#000000',
+                      outline: 'none'
+                    }}
+                  />
+                  
+                  {/* Live Preview */}
+                  <div style={{
+                    marginTop: '8px',
+                    padding: '12px',
+                    background: '#f0f9ff',
+                    borderRadius: '8px',
+                    border: '1px solid #bae6fd',
+                    fontSize: '14px',
+                    color: '#0ea5e9',
+                    fontWeight: '500'
+                  }}>
+                    <strong>实时预览:</strong> {companyInfo.companyName}, {companyInfo.phone}, {companyInfo.address}
+                  </div>
+                </div>
+              )}
+            </div>
+            
             <button 
               type="submit"
               style={{
@@ -1782,6 +1920,21 @@ function App() {
             }}
           />
         </div>
+        
+        {/* Company Info Section - "From:" - Now at the top */}
+        {includeCompanyInfo && (
+          <div style={{
+            fontSize: '15px',
+            marginBottom: '32px',
+            textAlign: 'left',
+            fontWeight: 400,
+          }}>
+            <div style={{fontWeight: 600, marginBottom: '10px', fontSize: '17px', letterSpacing: '0.5px'}}>From:</div>
+            <div style={{marginBottom: '4px'}}>{companyInfo.companyName}</div>
+            <div style={{marginBottom: '4px'}}>{companyInfo.phone}</div>
+            <div style={{marginBottom: '4px'}}>{companyInfo.address}</div>
+          </div>
+        )}
         
         {/* Recipient info with "To:" prefix */}
         {(userInfo.company || userInfo.name || userInfo.phone || userInfo.clientEmail || userInfo.address) && (
