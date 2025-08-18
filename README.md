@@ -9,7 +9,7 @@ A mobile-friendly web app for generating CARB truck check receipts with OCR vehi
 - 🚗 Automatic VIN decoding via NHTSA API
 - 📄 Professional receipt generation
 - 📊 Google Sheets data storage
-- 🌐 Chinese/English bilingual interface
+- 🌐 Chinese interface
 
 ## Deployment Instructions
 
