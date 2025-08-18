@@ -66,12 +66,16 @@ function handleClientSearch(searchTerm) {
     var companyCol = headers.indexOf('Company');
     var nameCol = headers.indexOf('Name');
     var phoneCol = headers.indexOf('Phone');
-    var emailCol = headers.indexOf('Email');
+    var clientEmailCol = headers.indexOf('Client Email');
+    var accountEmailCol = headers.indexOf('Account Email');
     var addressCol = headers.indexOf('Address');
     
     if (companyCol === -1 || nameCol === -1 || phoneCol === -1) {
       throw new Error('Required columns not found in sheet');
     }
+    
+    // Log column positions for debugging
+    Logger.log('Column positions: Company=' + companyCol + ', Name=' + nameCol + ', Phone=' + phoneCol + ', Client Email=' + emailCol + ', Account Email=' + accountEmailCol + ', Address=' + addressCol);
     
     // Search through existing receipt data to find unique clients
     var clients = [];
@@ -83,7 +87,8 @@ function handleClientSearch(searchTerm) {
       var company = row[companyCol] || '';
       var name = row[nameCol] || '';
       var phone = row[phoneCol] || '';
-      var email = row[emailCol] || '';
+      var clientEmail = row[clientEmailCol] || '';
+      var accountEmail = row[accountEmailCol] || '';
       var address = row[addressCol] || '';
       
       // Skip rows without company, name, or phone
@@ -99,12 +104,14 @@ function handleClientSearch(searchTerm) {
         var companyStr = String(company || '');
         var nameStr = String(name || '');
         var phoneStr = String(phone || '');
-        var emailStr = String(email || '');
+        var clientEmailStr = String(clientEmail || '');
+        var accountEmailStr = String(accountEmail || '');
         
         matches = companyStr.toLowerCase().includes(searchTerm.toLowerCase()) ||
                  nameStr.toLowerCase().includes(searchTerm.toLowerCase()) ||
                  phoneStr.includes(searchTerm) ||
-                 emailStr.toLowerCase().includes(searchTerm.toLowerCase());
+                 clientEmailStr.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                 accountEmailStr.toLowerCase().includes(searchTerm.toLowerCase());
       }
       
       // If it matches and we haven't seen this client before, add it
@@ -115,7 +122,8 @@ function handleClientSearch(searchTerm) {
           company: company,
           name: name,
           phone: phone,
-          email: email,
+          clientEmail: clientEmail,
+          accountEmail: accountEmail,
           address: address
         });
       }
@@ -198,7 +206,8 @@ function doPost(e) {
       data.company,
       data.name,
       data.phone,
-      data.email,
+      data.clientEmail,
+      data.accountEmail,
       data.address,
       data.additionalService,
       data.vehicles.length,
@@ -250,7 +259,8 @@ function setupHeaders() {
     'Company',
     'Name',
     'Phone',
-    'Email',
+    'Client Email',
+    'Account Email',
     'Address',
     'Additional Service',
     'Number of Vehicles',

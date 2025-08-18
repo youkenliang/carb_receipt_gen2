@@ -277,11 +277,11 @@ async function searchClients(searchTerm, onStatusUpdate = null) {
     console.log('🔄 Falling back to mock data...');
     if (onStatusUpdate) onStatusUpdate('success', '🔄 使用备用数据');
     const mockClients = [
-      { id: 1, company: 'ABC Trucking', name: 'John Smith', phone: '415-555-0101', email: 'john@abctrucking.com', address: '123 Main St, San Francisco, CA' },
-      { id: 2, company: 'XYZ Logistics', name: 'Jane Doe', phone: '415-555-0202', email: 'jane@xyzlogistics.com', address: '456 Oak Ave, Oakland, CA' },
-      { id: 3, company: 'Fast Freight', name: 'Bob Johnson', phone: '650-555-0303', email: 'bob@fastfreight.com', address: '789 Pine St, San Jose, CA' },
-      { id: 4, company: 'Reliable Transport', name: 'Alice Brown', phone: '650-555-0404', email: 'alice@reliable.com', address: '321 Elm St, Palo Alto, CA' },
-      { id: 5, company: 'Premium Shipping', name: 'Charlie Wilson', phone: '415-555-0505', email: 'charlie@premium.com', address: '654 Maple Dr, Berkeley, CA' }
+      { id: 1, company: 'ABC Trucking', name: 'John Smith', phone: '415-555-0101', clientEmail: 'john@abctrucking.com', accountEmail: 'john.account@abctrucking.com', address: '123 Main St, San Francisco, CA' },
+      { id: 2, company: 'XYZ Logistics', name: 'Jane Doe', phone: '415-555-0202', clientEmail: 'jane@xyzlogistics.com', accountEmail: 'jane.account@xyzlogistics.com', address: '456 Oak Ave, Oakland, CA' },
+      { id: 3, company: 'Fast Freight', name: 'Bob Johnson', phone: '650-555-0303', clientEmail: 'bob@fastfreight.com', accountEmail: 'bob.account@fastfreight.com', address: '789 Pine St, San Jose, CA' },
+      { id: 4, company: 'Reliable Transport', name: 'Alice Brown', phone: '650-555-0404', clientEmail: 'alice@reliable.com', accountEmail: 'alice.account@reliable.com', address: '321 Elm St, Palo Alto, CA' },
+      { id: 5, company: 'Premium Shipping', name: 'Charlie Wilson', phone: '415-555-0505', clientEmail: 'charlie@premium.com', accountEmail: 'charlie.account@premium.com', address: '654 Maple Dr, Berkeley, CA' }
     ];
     
     // Filter clients based on search term
@@ -289,7 +289,8 @@ async function searchClients(searchTerm, onStatusUpdate = null) {
       client.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
       client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       String(client.phone || '').includes(searchTerm) ||
-      client.email.toLowerCase().includes(searchTerm.toLowerCase())
+      client.clientEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (client.accountEmail && client.accountEmail.toLowerCase().includes(searchTerm.toLowerCase()))
     );
     
     return filteredClients;
@@ -364,13 +365,14 @@ async function checkVinValidity(vin) {
 
 function App() {
   const [step, setStep] = useState(1);
-  const [userInfo, setUserInfo] = useState({ company: '', name: '', phone: '', email: '', address: '', totalCharge: '', additionalService: '' });
+  const [userInfo, setUserInfo] = useState({ company: '', name: '', phone: '', clientEmail: '', accountEmail: '', address: '', totalCharge: '', additionalService: '' });
   
   // Client search state - separate for each field
   const [companySearchResults, setCompanySearchResults] = useState([]);
   const [nameSearchResults, setNameSearchResults] = useState([]);
   const [phoneSearchResults, setPhoneSearchResults] = useState([]);
-  const [emailSearchResults, setEmailSearchResults] = useState([]);
+  const [clientEmailSearchResults, setClientEmailSearchResults] = useState([]);
+  const [accountEmailSearchResults, setAccountEmailSearchResults] = useState([]);
   const [clientSearchLoading, setClientSearchLoading] = useState(false);
   const [clientSearchStatus, setClientSearchStatus] = useState({ message: '', type: '' });
   const [confirmedData, setConfirmedData] = useState({});
@@ -497,7 +499,7 @@ function App() {
       company: userInfo.company,
       name: userInfo.name,
       phone: userInfo.phone,
-      email: userInfo.email,
+              clientEmail: userInfo.clientEmail,
       address: userInfo.address,
       additionalService: userInfo.additionalService,
       vehicles: vehicleData.map(v => ({
@@ -1090,10 +1092,10 @@ function App() {
               }}
             />
             <div style={{ position: 'relative' }}>
-              <input 
-                name="company" 
-                placeholder="公司" 
-                value={userInfo.company} 
+            <input 
+              name="company" 
+              placeholder="公司" 
+              value={userInfo.company} 
                 onChange={(e) => {
                   handleUserInfo(e);
                   // Trigger client search when company field changes
@@ -1116,19 +1118,19 @@ function App() {
                     setClientSearchStatus({ message: '', type: '' });
                   }
                 }}
-                style={{
-                  padding: '14px 16px',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '8px',
-                  fontSize: '16px',
-                  backgroundColor: '#ffffff',
-                  color: '#000000',
-                  transition: 'border-color 0.2s',
-                  outline: 'none',
-                  width: '100%',
-                  boxSizing: 'border-box'
-                }}
-              />
+              style={{
+                padding: '14px 16px',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                fontSize: '16px',
+                backgroundColor: '#ffffff',
+                color: '#000000',
+                transition: 'border-color 0.2s',
+                outline: 'none',
+                width: '100%',
+                boxSizing: 'border-box'
+              }}
+            />
               
               {/* Loading Spinner for Company Search */}
               {clientSearchLoading && userInfo.company.length >= 2 && (
@@ -1176,7 +1178,8 @@ function App() {
                           company: client.company || '',
                           name: client.name || '',
                           phone: client.phone || '',
-                          email: client.email || '',
+                          clientEmail: client.clientEmail || '',
+                          accountEmail: client.accountEmail || '',
                           address: client.address || '',
                           totalCharge: userInfo.totalCharge,
                           additionalService: userInfo.additionalService
@@ -1205,10 +1208,10 @@ function App() {
               )}
             </div>
             <div style={{ position: 'relative' }}>
-              <input 
-                name="name" 
-                placeholder="姓名" 
-                value={userInfo.name} 
+            <input 
+              name="name" 
+              placeholder="姓名" 
+              value={userInfo.name} 
                 onChange={(e) => {
                   handleUserInfo(e);
                   // Trigger client search when name field changes
@@ -1231,19 +1234,19 @@ function App() {
                     setClientSearchStatus({ message: '', type: '' });
                   }
                 }}
-                style={{
-                  padding: '14px 16px',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '8px',
-                  fontSize: '16px',
-                  backgroundColor: '#ffffff',
-                  color: '#000000',
-                  transition: 'border-color 0.2s',
-                  outline: 'none',
-                  width: '100%',
-                  boxSizing: 'border-box'
-                }}
-              />
+              style={{
+                padding: '14px 16px',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                fontSize: '16px',
+                backgroundColor: '#ffffff',
+                color: '#000000',
+                transition: 'border-color 0.2s',
+                outline: 'none',
+                width: '100%',
+                boxSizing: 'border-box'
+              }}
+            />
               
               {/* Name Search Results */}
               {nameSearchResults.length > 0 && userInfo.name.length >= 2 && (
@@ -1271,10 +1274,11 @@ function App() {
                           company: client.company || '',
                           name: client.name || '',
                           phone: client.phone || '',
-                          email: client.email || '',
+                          clientEmail: client.clientEmail || '',
+                          accountEmail: client.accountEmail || '',
                           address: client.address || '',
                           totalCharge: userInfo.totalCharge,
-                          additionalService: userInfo.additionalService
+                          additionalService: client.additionalService
                         });
                         setNameSearchResults([]);
                         setClientSearchStatus({ message: '', type: '' });
@@ -1300,10 +1304,10 @@ function App() {
               )}
             </div>
             <div style={{ position: 'relative' }}>
-              <input 
-                name="phone" 
-                placeholder="电话" 
-                value={userInfo.phone} 
+            <input 
+              name="phone" 
+              placeholder="电话" 
+              value={userInfo.phone} 
                 onChange={(e) => {
                   handleUserInfo(e);
                   // Trigger client search when phone field changes
@@ -1326,19 +1330,19 @@ function App() {
                     setClientSearchStatus({ message: '', type: '' });
                   }
                 }}
-                style={{
-                  padding: '14px 16px',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '8px',
-                  fontSize: '16px',
-                  backgroundColor: '#ffffff',
-                  color: '#000000',
-                  transition: 'border-color 0.2s',
-                  outline: 'none',
-                  width: '100%',
-                  boxSizing: 'border-box'
-                }}
-              />
+              style={{
+                padding: '14px 16px',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                fontSize: '16px',
+                backgroundColor: '#ffffff',
+                color: '#000000',
+                transition: 'border-color 0.2s',
+                outline: 'none',
+                width: '100%',
+                boxSizing: 'border-box'
+              }}
+            />
               
               {/* Phone Search Results */}
               {phoneSearchResults.length > 0 && userInfo.phone.length >= 2 && (
@@ -1366,7 +1370,8 @@ function App() {
                           company: client.company || '',
                           name: client.name || '',
                           phone: client.phone || '',
-                          email: client.email || '',
+                          clientEmail: client.clientEmail || '',
+                          accountEmail: client.accountEmail || '',
                           address: client.address || '',
                           totalCharge: userInfo.totalCharge,
                           additionalService: userInfo.additionalService
@@ -1395,10 +1400,10 @@ function App() {
               )}
             </div>
             <div style={{ position: 'relative' }}>
-              <input 
-                name="email" 
-                placeholder="邮箱" 
-                value={userInfo.email} 
+            <input 
+                name="clientEmail" 
+                placeholder="客户邮箱" 
+                value={userInfo.clientEmail} 
                 onChange={(e) => {
                   handleUserInfo(e);
                   // Trigger client search when email field changes
@@ -1409,15 +1414,111 @@ function App() {
                     searchClients(e.target.value, (type, message) => {
                       setClientSearchStatus({ message, type });
                       setClientSearchLoading(false);
-                    }).then(clients => {
-                      setEmailSearchResults(clients.filter(client => 
-                        client.email.toLowerCase().includes(e.target.value.toLowerCase())
+                                        }).then(clients => {
+                      setClientEmailSearchResults(clients.filter(client => 
+                        client.clientEmail.toLowerCase().includes(e.target.value.toLowerCase())
                       ));
                     }).catch(() => {
                       setClientSearchLoading(false);
                     });
                   } else {
-                    setEmailSearchResults([]);
+                    setClientEmailSearchResults([]);
+                    setClientSearchStatus({ message: '', type: '' });
+                  }
+                }}
+              style={{
+                padding: '14px 16px',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                fontSize: '16px',
+                backgroundColor: '#ffffff',
+                color: '#000000',
+                transition: 'border-color 0.2s',
+                outline: 'none',
+                width: '100%',
+                boxSizing: 'border-box'
+              }}
+            />
+              
+              {/* Client Email Search Results */}
+              {clientEmailSearchResults.length > 0 && userInfo.clientEmail.length >= 2 && (
+                <div 
+                  data-dropdown="true"
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    background: 'white',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                    zIndex: 1000,
+                    maxHeight: '200px',
+                    overflowY: 'auto'
+                  }}
+                >
+                  {clientEmailSearchResults.map((client, idx) => (
+                    <div
+                      key={client.id}
+                      onClick={() => {
+                        setUserInfo({
+                          company: client.company || '',
+                          name: client.name || '',
+                          phone: client.phone || '',
+                          clientEmail: client.clientEmail || '',
+                          accountEmail: client.accountEmail || '',
+                          address: client.address || '',
+                          totalCharge: userInfo.totalCharge,
+                          additionalService: userInfo.additionalService
+                        });
+                        setClientEmailSearchResults([]);
+                        setClientSearchStatus({ message: '', type: '' });
+                      }}
+                      style={{
+                        padding: '12px 16px',
+                        borderBottom: idx < clientEmailSearchResults.length - 1 ? '1px solid #f3f4f6' : 'none',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.2s'
+                      }}
+                      onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
+                      onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                    >
+                      <div style={{ fontWeight: '600', color: '#374151', marginBottom: '4px' }}>
+                        {client.clientEmail}
+                      </div>
+                      <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                        {client.company} • {client.name}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div style={{ position: 'relative' }}>
+              <input 
+                name="accountEmail" 
+                placeholder="账户邮箱" 
+                value={userInfo.accountEmail} 
+                onChange={(e) => {
+                  handleUserInfo(e);
+                  // Trigger client search when account email field changes
+                  if (e.target.value.length >= 2) {
+                    setClientSearchLoading(true);
+                    setClientSearchStatus({ message: '🔍 正在搜索...', type: 'searching' });
+                    
+                    searchClients(e.target.value, (type, message) => {
+                      setClientSearchStatus({ message, type });
+                      setClientSearchLoading(false);
+                    }).then(clients => {
+                      setAccountEmailSearchResults(clients.filter(client => 
+                        (client.accountEmail && client.accountEmail.toLowerCase().includes(e.target.value.toLowerCase()))
+                      ));
+                    }).catch(() => {
+                      setClientSearchLoading(false);
+                    });
+                  } else {
+                    setAccountEmailSearchResults([]);
                     setClientSearchStatus({ message: '', type: '' });
                   }
                 }}
@@ -1435,8 +1536,8 @@ function App() {
                 }}
               />
               
-              {/* Email Search Results */}
-              {emailSearchResults.length > 0 && userInfo.email.length >= 2 && (
+              {/* Account Email Search Results */}
+              {accountEmailSearchResults.length > 0 && userInfo.accountEmail.length >= 2 && (
                 <div 
                   data-dropdown="true"
                   style={{
@@ -1450,10 +1551,10 @@ function App() {
                     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
                     zIndex: 1000,
                     maxHeight: '200px',
-                    overflowY: 'auto'
+                  overflowY: 'auto'
                   }}
                 >
-                  {emailSearchResults.map((client, idx) => (
+                  {accountEmailSearchResults.map((client, idx) => (
                     <div
                       key={client.id}
                       onClick={() => {
@@ -1461,17 +1562,18 @@ function App() {
                           company: client.company || '',
                           name: client.name || '',
                           phone: client.phone || '',
-                          email: client.email || '',
+                          clientEmail: client.clientEmail || '',
+                          accountEmail: client.accountEmail || '',
                           address: client.address || '',
                           totalCharge: userInfo.totalCharge,
                           additionalService: userInfo.additionalService
                         });
-                        setEmailSearchResults([]);
+                        setAccountEmailSearchResults([]);
                         setClientSearchStatus({ message: '', type: '' });
                       }}
                       style={{
                         padding: '12px 16px',
-                        borderBottom: idx < emailSearchResults.length - 1 ? '1px solid #f3f4f6' : 'none',
+                        borderBottom: idx < accountEmailSearchResults.length - 1 ? '1px solid #f3f4f6' : 'none',
                         cursor: 'pointer',
                         transition: 'background-color 0.2s'
                       }}
@@ -1479,7 +1581,7 @@ function App() {
                       onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
                     >
                       <div style={{ fontWeight: '600', color: '#374151', marginBottom: '4px' }}>
-                        {client.email}
+                        {client.accountEmail}
                       </div>
                       <div style={{ fontSize: '14px', color: '#6b7280' }}>
                         {client.company} • {client.name}
@@ -1681,7 +1783,7 @@ function App() {
         </div>
         
         {/* Recipient info with "To:" prefix */}
-        {(userInfo.company || userInfo.name || userInfo.phone || userInfo.email || userInfo.address) && (
+        {(userInfo.company || userInfo.name || userInfo.phone || userInfo.clientEmail || userInfo.address) && (
           <div style={{
             fontSize: '15px',
             marginBottom: '32px',
@@ -1692,7 +1794,7 @@ function App() {
             {userInfo.company && (<div style={{marginBottom: '4px'}}>{userInfo.company}</div>)}
             {userInfo.name && (<div style={{marginBottom: '4px'}}>{userInfo.name}</div>)}
             {userInfo.phone && (<div style={{marginBottom: '4px'}}>{userInfo.phone}</div>)}
-            {userInfo.email && (<div style={{marginBottom: '4px'}}>{userInfo.email}</div>)}
+            {userInfo.clientEmail && (<div style={{marginBottom: '4px'}}>{userInfo.clientEmail}</div>)}
             {userInfo.address && (<div style={{marginBottom: '4px'}}>{userInfo.address}</div>)}
           </div>
         )}
@@ -1791,9 +1893,9 @@ function App() {
                 if (phoneSearchResults.length > 0) {
                   setPhoneSearchResults([]);
                 }
-                if (emailSearchResults.length > 0) {
-                  setEmailSearchResults([]);
-                }
+                        if (clientEmailSearchResults.length > 0) {
+          setClientEmailSearchResults([]);
+        }
               }
             };
 
@@ -1801,7 +1903,7 @@ function App() {
           return () => {
             document.removeEventListener('mousedown', handleClickOutside);
           };
-        }, [companySearchResults, nameSearchResults, phoneSearchResults, emailSearchResults]);
+        }, [companySearchResults, nameSearchResults, phoneSearchResults, clientEmailSearchResults]);
 
         return null;
       })()}
